@@ -22,13 +22,14 @@
             overflow: hidden;
         }
 
-        /* [1] 캐릭터 선택 화면 */
+        /* [1] 캐릭터 선택 화면 (메인화면) */
         #menu-screen {
+            position: relative; /* 내부 요소 배치를 위한 기준점 */
             display: flex;
             flex-direction: column;
             align-items: center;
             background: linear-gradient(135deg, #1e293b, #0f172a);
-            padding: 40px 30px;
+            padding: 50px 30px 60px 30px; /* 크레딧 여백 확보 */
             border-radius: 24px;
             box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
             border: 4px solid #00f2fe;
@@ -36,10 +37,23 @@
             width: 90%;
             max-width: 400px;
         }
+        
+        /* [추가] 상단 우측 버전 표시 */
+        .version-tag {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: #64748b;
+            font-size: 11px;
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
         #menu-screen h1 {
             color: #00f2fe;
             font-size: 32px;
-            margin: 0 0 10px 0;
+            margin: 10px 0 10px 0;
             text-shadow: 0 0 10px #00f2fe;
             letter-spacing: 1px;
         }
@@ -70,6 +84,16 @@
         #btn-jihoon { border-color: #3b82f6; box-shadow: 0 0 10px rgba(59,130,246,0.2); }
         .select-btn .emoji { font-size: 50px; margin-bottom: 8px; }
         .select-btn .name { color: #fff; font-size: 20px; font-weight: bold; font-family: 'Malgun Gothic'; }
+
+        /* [추가] 최하단 제작자 표시 */
+        .creator-tag {
+            position: absolute;
+            bottom: 15px;
+            color: #475569;
+            font-size: 12px;
+            font-family: 'Arial', sans-serif;
+            letter-spacing: 1px;
+        }
 
         /* [2] 게임 화면 래퍼 */
         #game-screen {
@@ -185,7 +209,9 @@
 </head>
 <body>
 
+    <!-- [1] 캐릭터 선택 창 (메인화면) -->
     <div id="menu-screen">
+        <div class="version-tag">ver 1.0</div> <!-- 상단 우측 버전 추가 -->
         <h1>ARCADE BADMINTON</h1>
         <p>원하는 캐릭터를 터치하여 대결을 시작하세요!</p>
         <div class="btn-container">
@@ -198,8 +224,10 @@
                 <div class="name">지훈</div>
             </div>
         </div>
+        <div class="creator-tag">made by Dean</div> <!-- 최하단 크레딧 추가 -->
     </div>
 
+    <!-- [2] 인게임 인터페이스 -->
     <div id="game-screen">
         <div id="arcade-header">
             <div id="sys-menu">
@@ -215,6 +243,7 @@
 
         <canvas id="gameCanvas" width="800" height="400"></canvas>
 
+        <!-- [3] 아케이드 터치 콘트롤러 -->
         <div id="pad-container">
             <div class="arrow-group">
                 <div class="pad-btn" id="pad-l">◀</div>
@@ -230,19 +259,18 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // [조정] 점프 강화 매칭 데이터
-        const JUMP_POWER = -13.5; // 더 높고 시원하게 뛰도록 점프력 대폭 상향 (-10.5 -> -13.5)
+        const JUMP_POWER = -13.5; 
         const GRAVITY = 0.52;     
         const NET_X = 400;
         const NET_H = 100;
-        const MAX_SCORE = 10;     // 승리 기준 점수 정의
+        const MAX_SCORE = 10;     
 
         let leftScore = 0;
         let rightScore = 0;
         let selectedCharacter = 'jiyoon';
         let isPaused = false; 
-        let isGameOver = false;   // 게임 종료 유무 플래그
-        let winnerName = "";      // 최종 승리자 저장변수
+        let isGameOver = false;   
+        let winnerName = "";      
 
         const inputs = { left: false, right: false, jump: false };
         let activeSmashLines = []; 
@@ -394,12 +422,12 @@
                     if (this.x < NET_X) {
                         rightScore++;
                         document.getElementById("score-right").innerText = rightScore;
-                        checkMatchPoint(); // 득점 시 스코어 판정 추가
+                        checkMatchPoint(); 
                         if(!isGameOver) this.reset(true);
                     } else {
                         leftScore++;
                         document.getElementById("score-left").innerText = leftScore;
-                        checkMatchPoint(); // 득점 시 스코어 판정 추가
+                        checkMatchPoint(); 
                         if(!isGameOver) this.reset(false);
                     }
                 }
@@ -436,7 +464,6 @@
 
         let player1, player2, arcadeBall;
 
-        // [기능 추가] 10점 선취 도달 확인 판정 시스템
         function checkMatchPoint() {
             if (leftScore >= MAX_SCORE) {
                 isGameOver = true;
@@ -449,11 +476,10 @@
             }
         }
 
-        // 10점 획득 시 10초 후 메인으로 자동 사후 조치
         function triggerExitTimer() {
             setTimeout(() => {
                 resetToMenu();
-            }, 10000);
+            }, 10000); // 이전 질문에서 설명드린 딜레이 시간 설정 부분 (기본 10초)
         }
 
         function resetToMenu() {
@@ -513,7 +539,7 @@
         document.getElementById("btn-jihoon").addEventListener("click", () => initArcadeGame('jihoon'));
 
         document.getElementById("btn-pause").addEventListener("click", () => {
-            if (isGameOver) return; // 게임 끝났을 땐 패스
+            if (isGameOver) return; 
             isPaused = !isPaused;
             if(isPaused) {
                 document.getElementById("btn-pause").innerText = "▶ PLAY";
@@ -564,13 +590,11 @@
                 ctx.restore();
             }
 
-            // [기능 추가] 10점 달성 최종 종료 스크린 메시지 드로잉 연출
             if(isGameOver) {
                 ctx.save();
-                ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; // 매치 테마 어두운 백그라운드 밀폐
+                ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                // 네온 스타일 타이틀 바운더리
                 ctx.font = "bold 46px 'Malgun Gothic'";
                 ctx.fillStyle = "#00f2fe";
                 ctx.textAlign = "center";
@@ -578,7 +602,6 @@
                 ctx.shadowColor = "#00f2fe";
                 ctx.fillText("경기 종료 (MATCH OVER)", canvas.width / 2, canvas.height / 2 - 30);
                 
-                // 최종 Winner 선포 자막
                 ctx.font = "bold 32px 'Malgun Gothic'";
                 ctx.fillStyle = "#ffd700";
                 ctx.shadowBlur = 10;
@@ -593,7 +616,6 @@
         }
 
         function mainLoop() {
-            // 일시정지와 게임오버가 아닐 때만 유닛들의 움직임 업데이트
             if (!isPaused && !isGameOver && player1 && player2 && arcadeBall) {
                 player1.update(arcadeBall);
                 player2.update(arcadeBall);
@@ -607,7 +629,7 @@
             if (player1 && player2 && arcadeBall) {
                 player1.draw();
                 player2.draw();
-                if(!isGameOver) arcadeBall.draw(); // 게임오버 시 공 히든 처리
+                if(!isGameOver) arcadeBall.draw(); 
             }
 
             requestAnimationFrame(mainLoop);
