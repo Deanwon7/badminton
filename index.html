@@ -449,11 +449,11 @@
             }
         }
 
-        // 10점 획득 시 3초 후 메인으로 자동 사후 조치
+        // 10점 획득 시 10초 후 메인으로 자동 사후 조치
         function triggerExitTimer() {
             setTimeout(() => {
                 resetToMenu();
-            }, 3000);
+            }, 10000);
         }
 
         function resetToMenu() {
