@@ -24,12 +24,12 @@
 
         /* [1] 캐릭터 선택 화면 (메인화면) */
         #menu-screen {
-            position: relative; /* 내부 요소 배치를 위한 기준점 */
+            position: relative; 
             display: flex;
             flex-direction: column;
             align-items: center;
             background: linear-gradient(135deg, #1e293b, #0f172a);
-            padding: 50px 30px 60px 30px; /* 크레딧 여백 확보 */
+            padding: 50px 30px 60px 30px; 
             border-radius: 24px;
             box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
             border: 4px solid #00f2fe;
@@ -38,7 +38,6 @@
             max-width: 400px;
         }
         
-        /* [추가] 상단 우측 버전 표시 */
         .version-tag {
             position: absolute;
             top: 15px;
@@ -85,7 +84,6 @@
         .select-btn .emoji { font-size: 50px; margin-bottom: 8px; }
         .select-btn .name { color: #fff; font-size: 20px; font-weight: bold; font-family: 'Malgun Gothic'; }
 
-        /* [추가] 최하단 제작자 표시 */
         .creator-tag {
             position: absolute;
             bottom: 15px;
@@ -209,9 +207,8 @@
 </head>
 <body>
 
-    <!-- [1] 캐릭터 선택 창 (메인화면) -->
     <div id="menu-screen">
-        <div class="version-tag">ver 1.0</div> <!-- 상단 우측 버전 추가 -->
+        <div class="version-tag">ver 1.0</div> 
         <h1>ARCADE BADMINTON</h1>
         <p>원하는 캐릭터를 터치하여 대결을 시작하세요!</p>
         <div class="btn-container">
@@ -224,10 +221,9 @@
                 <div class="name">지훈</div>
             </div>
         </div>
-        <div class="creator-tag">made by Dean</div> <!-- 최하단 크레딧 추가 -->
+        <div class="creator-tag">made by Dean</div> 
     </div>
 
-    <!-- [2] 인게임 인터페이스 -->
     <div id="game-screen">
         <div id="arcade-header">
             <div id="sys-menu">
@@ -243,7 +239,6 @@
 
         <canvas id="gameCanvas" width="800" height="400"></canvas>
 
-        <!-- [3] 아케이드 터치 콘트롤러 -->
         <div id="pad-container">
             <div class="arrow-group">
                 <div class="pad-btn" id="pad-l">◀</div>
@@ -467,11 +462,11 @@
         function checkMatchPoint() {
             if (leftScore >= MAX_SCORE) {
                 isGameOver = true;
-                winnerName = player1.name;
+                winnerName = player1.isAI ? "지윤(AI)" : "지윤(유저)";
                 triggerExitTimer();
             } else if (rightScore >= MAX_SCORE) {
                 isGameOver = true;
-                winnerName = player2.name;
+                winnerName = player2.isAI ? "지훈(AI)" : "지훈(유저)";
                 triggerExitTimer();
             }
         }
@@ -479,7 +474,7 @@
         function triggerExitTimer() {
             setTimeout(() => {
                 resetToMenu();
-            }, 10000); // 이전 질문에서 설명드린 딜레이 시간 설정 부분 (기본 10초)
+            }, 10000); 
         }
 
         function resetToMenu() {
@@ -500,13 +495,13 @@
             document.getElementById("btn-pause").innerText = "⏸ PAUSE";
 
             if (choice === 'jiyoon') {
-                player1 = new Character(160, "#ffe4e6", "👩", "지윤(유저)", true, false);
-                player2 = new Character(640, "#dbeafe", "👨", "지훈(AI)", false, true);
+                player1 = new Character(160, "#ffe4e6", "👩", "지윤", true, false);
+                player2 = new Character(640, "#dbeafe", "👨", "지훈", false, true);
                 document.getElementById("name-left").innerText = "지윤(유저)";
                 document.getElementById("name-right").innerText = "지훈(AI)";
             } else {
-                player1 = new Character(160, "#ffe4e6", "👩", "지윤(AI)", true, true);
-                player2 = new Character(640, "#dbeafe", "👨", "지훈(유저)", false, false);
+                player1 = new Character(160, "#ffe4e6", "👩", "지윤", true, true);
+                player2 = new Character(640, "#dbeafe", "👨", "지훈", false, false);
                 document.getElementById("name-left").innerText = "지윤(AI)";
                 document.getElementById("name-right").innerText = "지훈(유저)";
             }
@@ -590,27 +585,31 @@
                 ctx.restore();
             }
 
+            /* [수정] 점수 및 폰트 크기 다운사이징 & 가독성 레이아웃 재배치 */
             if(isGameOver) {
                 ctx.save();
-                ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; 
+                ctx.fillStyle = "rgba(15, 23, 42, 0.92)"; 
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                ctx.font = "bold 46px 'Malgun Gothic'";
+                // 타이틀 폰트 크기 조정 (46px -> 36px)
+                ctx.font = "bold 36px 'Malgun Gothic'";
                 ctx.fillStyle = "#00f2fe";
                 ctx.textAlign = "center";
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = "#00f2fe";
-                ctx.fillText("경기 종료 (MATCH OVER)", canvas.width / 2, canvas.height / 2 - 30);
+                ctx.fillText("경기 종료 (MATCH OVER)", canvas.width / 2, canvas.height / 2 - 35);
                 
-                ctx.font = "bold 32px 'Malgun Gothic'";
+                // 승리자 및 최종 점수 안내 폰트 크기 조정 (32px -> 24px)
+                ctx.font = "bold 24px 'Malgun Gothic'";
                 ctx.fillStyle = "#ffd700";
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = "#ffd700";
-                ctx.fillText(`🏆 승리자: ${winnerName} 🏆`, canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText(`🏆 승리자: ${winnerName} [ ${leftScore} : ${rightScore} ] 🏆`, canvas.width / 2, canvas.height / 2 + 15);
                 
-                ctx.font = "14px 'Malgun Gothic'";
+                ctx.font = "13px 'Malgun Gothic'";
                 ctx.fillStyle = "#94a3b8";
-                ctx.fillText("잠시 후 메인 화면으로 이동합니다...", canvas.width / 2, canvas.height / 2 + 80);
+                ctx.shadowBlur = 0;
+                ctx.fillText("잠시 후 메인 화면으로 이동합니다...", canvas.width / 2, canvas.height / 2 + 65);
                 ctx.restore();
             }
         }
@@ -626,10 +625,12 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawArcadeStage();
-            if (player1 && player2 && arcadeBall) {
+            
+            // [수정] 게임오버(isGameOver)가 아닐 때만 플레이어 캐릭터를 그리도록 예외처리 추가
+            if (!isGameOver && player1 && player2 && arcadeBall) {
                 player1.draw();
                 player2.draw();
-                if(!isGameOver) arcadeBall.draw(); 
+                arcadeBall.draw(); 
             }
 
             requestAnimationFrame(mainLoop);
