@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arcade Badminton Strike - Version 2</title>
+    <title>Arcade Badminton Strike - Championship</title>
     <style>
         * {
             box-sizing: border-box;
@@ -82,7 +82,6 @@
             justify-content: space-between;
             padding: 20px 10px;
         }
-        /* 아케이드 점수판 & 시스템 버튼 상단바 */
         #arcade-header {
             display: flex;
             flex-direction: column;
@@ -231,21 +230,23 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // [조정] 아케이드 속도 완화 세팅 데이터
-        const JUMP_POWER = -10.5; // 점프 높이 소폭 조절
-        const GRAVITY = 0.52;     // 낙하 중력 최적화
+        // [조정] 점프 강화 매칭 데이터
+        const JUMP_POWER = -13.5; // 더 높고 시원하게 뛰도록 점프력 대폭 상향 (-10.5 -> -13.5)
+        const GRAVITY = 0.52;     
         const NET_X = 400;
         const NET_H = 100;
+        const MAX_SCORE = 10;     // 승리 기준 점수 정의
 
         let leftScore = 0;
         let rightScore = 0;
         let selectedCharacter = 'jiyoon';
-        let isPaused = false; // 일시정지 상태 플래그
+        let isPaused = false; 
+        let isGameOver = false;   // 게임 종료 유무 플래그
+        let winnerName = "";      // 최종 승리자 저장변수
 
         const inputs = { left: false, right: false, jump: false };
         let activeSmashLines = []; 
 
-        // 캐릭터 크기 및 물리 모델
         class Character {
             constructor(x, color, emoji, name, isLeft, isAI) {
                 this.x = x;
@@ -257,7 +258,7 @@
                 this.name = name;
                 this.isLeft = isLeft;
                 this.isAI = isAI;
-                this.speed = 5.5; // [조정] 기존 7에서 5.5로 이동 속도 완화
+                this.speed = 5.5; 
                 this.vy = 0;
                 this.isGrounded = true;
             }
@@ -285,10 +286,10 @@
                 ctx.font = "14px 'Malgun Gothic'";
                 ctx.fillStyle = "#fff";
 
-                ctx.strokeStyle = "#00f2fe";
                 ctx.lineWidth = 4;
                 ctx.beginPath();
                 if (this.isLeft) {
+                    ctx.strokeStyle = "#00f2fe";
                     ctx.moveTo(this.x + 10, this.y);
                     ctx.lineTo(this.x + 35, this.y - 25);
                     ctx.stroke();
@@ -312,11 +313,10 @@
                     if (this.isLeft && ball.x > NET_X) idealX = 150;
                     if (!this.isLeft && ball.x < NET_X) idealX = 650;
 
-                    // [조정] AI 추적 반응 속도 균형 최적화
                     if (this.x < idealX - 10) this.x += this.speed * 0.8;
                     else if (this.x > idealX + 10) this.x -= this.speed * 0.8;
 
-                    if (this.isGrounded && Math.abs(ball.x - this.x) < 70 && ball.y < 250 && ball.vy > 0) {
+                    if (this.isGrounded && Math.abs(ball.x - this.x) < 70 && ball.y < 230 && ball.vy > 0) {
                         this.vy = JUMP_POWER;
                         this.isGrounded = false;
                     }
@@ -350,7 +350,6 @@
             }
         }
 
-        // 아케이드 공 모델
         class ArcadeBall {
             constructor() {
                 this.reset(true);
@@ -359,7 +358,7 @@
             reset(toLeft) {
                 this.x = toLeft ? 200 : 600;
                 this.y = 120;
-                this.vx = toLeft ? 3.2 : -3.2; // [조정] 기본 수평 발사 속도 하향 다운에 맞춰 감속
+                this.vx = toLeft ? 3.2 : -3.2; 
                 this.vy = -2;
                 this.radius = 10;
                 this.isSuperStrike = false;
@@ -395,11 +394,13 @@
                     if (this.x < NET_X) {
                         rightScore++;
                         document.getElementById("score-right").innerText = rightScore;
-                        this.reset(true);
+                        checkMatchPoint(); // 득점 시 스코어 판정 추가
+                        if(!isGameOver) this.reset(true);
                     } else {
                         leftScore++;
                         document.getElementById("score-left").innerText = leftScore;
-                        this.reset(false);
+                        checkMatchPoint(); // 득점 시 스코어 판정 추가
+                        if(!isGameOver) this.reset(false);
                     }
                 }
             }
@@ -411,7 +412,6 @@
                 let dist = Math.sqrt(dx*dx + dy*dy);
 
                 if (dist < player.radius + this.radius + 20) {
-                    // [조정] 타격 전달 속도 계수 감속 매칭
                     this.vx = player.isLeft ? Math.abs(this.vx) + 1.1 : -Math.abs(this.vx) - 1.1;
                     this.vy = -9.2; 
 
@@ -420,7 +420,7 @@
                     if (!player.isGrounded) {
                         this.isSuperStrike = true;
                         this.vx *= 1.5;
-                        this.vy = 10.5; // [조정] 스매시 꽂히는 속도 안정화
+                        this.vy = 10.5; 
 
                         activeSmashLines.push({
                             sx: this.x, sy: this.y,
@@ -436,11 +436,38 @@
 
         let player1, player2, arcadeBall;
 
-        // 게임 룸 구동 스위치
+        // [기능 추가] 10점 선취 도달 확인 판정 시스템
+        function checkMatchPoint() {
+            if (leftScore >= MAX_SCORE) {
+                isGameOver = true;
+                winnerName = player1.name;
+                triggerExitTimer();
+            } else if (rightScore >= MAX_SCORE) {
+                isGameOver = true;
+                winnerName = player2.name;
+                triggerExitTimer();
+            }
+        }
+
+        // 10점 획득 시 3초 후 메인으로 자동 사후 조치
+        function triggerExitTimer() {
+            setTimeout(() => {
+                resetToMenu();
+            }, 3000);
+        }
+
+        function resetToMenu() {
+            isPaused = false;
+            isGameOver = false;
+            document.getElementById("game-screen").style.display = "none";
+            document.getElementById("menu-screen").style.display = "flex";
+        }
+
         function initArcadeGame(choice) {
             selectedCharacter = choice;
             leftScore = 0;
             rightScore = 0;
+            isGameOver = false;
             document.getElementById("score-left").innerText = "0";
             document.getElementById("score-right").innerText = "0";
             isPaused = false;
@@ -466,47 +493,38 @@
             setupTouchPads();
         }
 
-        // 터치 조작부 바인딩 이벤트 처리
         function setupTouchPads() {
-            // 중복 리스너 바인딩 차단을 방지하기 위해 단일 매핑 처리 원칙 준수
             if(window.touchEventsBound) return;
             window.touchEventsBound = true;
 
             const bind = (id, action) => {
                 const target = document.getElementById(id);
-                target.addEventListener("touchstart", (e) => { e.preventDefault(); if(!isPaused) inputs[action] = true; });
+                target.addEventListener("touchstart", (e) => { e.preventDefault(); if(!isPaused && !isGameOver) inputs[action] = true; });
                 target.addEventListener("touchend", (e) => { e.preventDefault(); inputs[action] = false; });
             };
             bind("pad-l", "left");
             bind("pad-r", "right");
             document.getElementById("pad-j").addEventListener("touchstart", (e) => {
-                e.preventDefault(); if(!isPaused) inputs.jump = true;
+                e.preventDefault(); if(!isPaused && !isGameOver) inputs.jump = true;
             });
         }
 
-        // 메뉴/상단 시스템 버튼 이벤트 바인딩
         document.getElementById("btn-jiyoon").addEventListener("click", () => initArcadeGame('jiyoon'));
         document.getElementById("btn-jihoon").addEventListener("click", () => initArcadeGame('jihoon'));
 
-        // [기능 추가] PAUSE 제어 시스템 리스너
         document.getElementById("btn-pause").addEventListener("click", () => {
+            if (isGameOver) return; // 게임 끝났을 땐 패스
             isPaused = !isPaused;
             if(isPaused) {
                 document.getElementById("btn-pause").innerText = "▶ PLAY";
-                // 멈췄을 때 키 입력 누락 초기화 조치
-                inputs.left = false;
-                inputs.right = false;
-                inputs.jump = false;
+                inputs.left = false; inputs.right = false; inputs.jump = false;
             } else {
                 document.getElementById("btn-pause").innerText = "⏸ PAUSE";
             }
         });
 
-        // [기능 추가] 종료 버튼 - 홈 초기 화면 이동 리스너
         document.getElementById("btn-exit").addEventListener("click", () => {
-            isPaused = false;
-            document.getElementById("game-screen").style.display = "none";
-            document.getElementById("menu-screen").style.display = "flex";
+            resetToMenu();
         });
 
         function drawArcadeStage() {
@@ -531,11 +549,10 @@
                 ctx.stroke();
                 ctx.restore();
 
-                if(!isPaused) line.alpha -= 0.08; 
+                if(!isPaused && !isGameOver) line.alpha -= 0.08; 
                 if (line.alpha <= 0) activeSmashLines.splice(i, 1);
             }
 
-            // 일시정지 상태일 때 캔버스 중앙 안내 텍스트 출력
             if(isPaused) {
                 ctx.save();
                 ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
@@ -546,12 +563,38 @@
                 ctx.fillText("일시 정지됨", canvas.width / 2, canvas.height / 2);
                 ctx.restore();
             }
+
+            // [기능 추가] 10점 달성 최종 종료 스크린 메시지 드로잉 연출
+            if(isGameOver) {
+                ctx.save();
+                ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; // 매치 테마 어두운 백그라운드 밀폐
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 네온 스타일 타이틀 바운더리
+                ctx.font = "bold 46px 'Malgun Gothic'";
+                ctx.fillStyle = "#00f2fe";
+                ctx.textAlign = "center";
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = "#00f2fe";
+                ctx.fillText("경기 종료 (MATCH OVER)", canvas.width / 2, canvas.height / 2 - 30);
+                
+                // 최종 Winner 선포 자막
+                ctx.font = "bold 32px 'Malgun Gothic'";
+                ctx.fillStyle = "#ffd700";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#ffd700";
+                ctx.fillText(`🏆 승리자: ${winnerName} 🏆`, canvas.width / 2, canvas.height / 2 + 30);
+                
+                ctx.font = "14px 'Malgun Gothic'";
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText("잠시 후 메인 화면으로 이동합니다...", canvas.width / 2, canvas.height / 2 + 80);
+                ctx.restore();
+            }
         }
 
-        // 통합 메인 루프 프레임 런쳐
         function mainLoop() {
-            // 일시정지(isPaused)가 아닐 때만 물리적 연산 연동 업데이트 실행
-            if (!isPaused && player1 && player2 && arcadeBall) {
+            // 일시정지와 게임오버가 아닐 때만 유닛들의 움직임 업데이트
+            if (!isPaused && !isGameOver && player1 && player2 && arcadeBall) {
                 player1.update(arcadeBall);
                 player2.update(arcadeBall);
                 arcadeBall.update();
@@ -559,19 +602,17 @@
                 arcadeBall.hitCheck(player2);
             }
 
-            // 그리기 루프는 멈춘 상태 렌더 유지를 위해 매 틱 실행 필수
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawArcadeStage();
             if (player1 && player2 && arcadeBall) {
                 player1.draw();
                 player2.draw();
-                arcadeBall.draw();
+                if(!isGameOver) arcadeBall.draw(); // 게임오버 시 공 히든 처리
             }
 
             requestAnimationFrame(mainLoop);
         }
 
-        // 글로벌 엔진 루프 스타트
         mainLoop();
     </script>
 </body>
