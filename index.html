@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Arcade Badminton Strike</title>
+    <title>Arcade Badminton Strike - Version 2</title>
     <style>
         * {
             box-sizing: border-box;
@@ -22,7 +22,7 @@
             overflow: hidden;
         }
 
-        /* [1] 아케이드풍 캐릭터 선택 화면 */
+        /* [1] 캐릭터 선택 화면 */
         #menu-screen {
             display: flex;
             flex-direction: column;
@@ -82,7 +82,40 @@
             justify-content: space-between;
             padding: 20px 10px;
         }
-        /* 아케이드 점수판 */
+        /* 아케이드 점수판 & 시스템 버튼 상단바 */
+        #arcade-header {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        #sys-menu {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            width: 100%;
+        }
+        .sys-btn {
+            padding: 6px 14px;
+            font-family: 'Malgun Gothic', sans-serif;
+            font-size: 13px;
+            font-weight: bold;
+            color: white;
+            background: #334155;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .sys-btn:active {
+            background: #475569;
+        }
+        #btn-exit {
+            background: #9f1239;
+            border-color: #be123c;
+        }
+        #btn-exit:active {
+            background: #e11d48;
+        }
         #arcade-hud {
             display: flex;
             justify-content: space-between;
@@ -169,10 +202,16 @@
     </div>
 
     <div id="game-screen">
-        <div id="arcade-hud">
-            <div class="hud-player"><span>👩</span> <span id="name-left">지윤</span></div>
-            <div class="hud-score"><span id="score-left">0</span> : <span id="score-right">0</span></div>
-            <div class="hud-player"><span id="name-right">지훈</span> <span>👨</span></div>
+        <div id="arcade-header">
+            <div id="sys-menu">
+                <button class="sys-btn" id="btn-pause">⏸ PAUSE</button>
+                <button class="sys-btn" id="btn-exit">종료</button>
+            </div>
+            <div id="arcade-hud">
+                <div class="hud-player"><span>👩</span> <span id="name-left">지윤</span></div>
+                <div class="hud-score"><span id="score-left">0</span> : <span id="score-right">0</span></div>
+                <div class="hud-player"><span id="name-right">지훈</span> <span>👨</span></div>
+            </div>
         </div>
 
         <canvas id="gameCanvas" width="800" height="400"></canvas>
@@ -192,20 +231,21 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // 아케이드 전용 속도 데이터
-        const JUMP_POWER = -12;
-        const GRAVITY = 0.6;
+        // [조정] 아케이드 속도 완화 세팅 데이터
+        const JUMP_POWER = -10.5; // 점프 높이 소폭 조절
+        const GRAVITY = 0.52;     // 낙하 중력 최적화
         const NET_X = 400;
         const NET_H = 100;
 
         let leftScore = 0;
         let rightScore = 0;
         let selectedCharacter = 'jiyoon';
+        let isPaused = false; // 일시정지 상태 플래그
 
         const inputs = { left: false, right: false, jump: false };
-        let activeSmashLines = []; // 필살기 이펙트 저장배열
+        let activeSmashLines = []; 
 
-        // 아케이드 캐릭터 오브젝트
+        // 캐릭터 크기 및 물리 모델
         class Character {
             constructor(x, color, emoji, name, isLeft, isAI) {
                 this.x = x;
@@ -217,20 +257,18 @@
                 this.name = name;
                 this.isLeft = isLeft;
                 this.isAI = isAI;
-                this.speed = 7;
+                this.speed = 5.5; // [조정] 기존 7에서 5.5로 이동 속도 완화
                 this.vy = 0;
                 this.isGrounded = true;
             }
 
             draw() {
                 ctx.save();
-                // 원형 캐릭터 베이스 지면 그림자
                 ctx.beginPath();
                 ctx.ellipse(this.x, this.baseY, this.radius - (this.baseY - this.y)*0.05, 6, 0, 0, Math.PI * 2);
                 ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
                 ctx.fill();
 
-                // 캐릭터 몸체
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
@@ -239,13 +277,14 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // 이모티콘 텍스트
                 ctx.font = "32px Arial";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(this.emoji, this.x, this.y - 2);
 
-                // 네온풍 라켓
+                ctx.font = "14px 'Malgun Gothic'";
+                ctx.fillStyle = "#fff";
+
                 ctx.strokeStyle = "#00f2fe";
                 ctx.lineWidth = 4;
                 ctx.beginPath();
@@ -269,21 +308,19 @@
 
             update(ball) {
                 if (this.isAI) {
-                    // 아케이드형 초고속 추적 AI
                     let idealX = ball.x;
                     if (this.isLeft && ball.x > NET_X) idealX = 150;
                     if (!this.isLeft && ball.x < NET_X) idealX = 650;
 
-                    if (this.x < idealX - 10) this.x += this.speed * 0.85;
-                    else if (this.x > idealX + 10) this.x -= this.speed * 0.85;
+                    // [조정] AI 추적 반응 속도 균형 최적화
+                    if (this.x < idealX - 10) this.x += this.speed * 0.8;
+                    else if (this.x > idealX + 10) this.x -= this.speed * 0.8;
 
-                    // 공이 자기 머리 위에 올 때 즉시 아케이드 점프 리액션
-                    if (this.isGrounded && Math.abs(ball.x - this.x) < 60 && ball.y < 240 && ball.vy > 0) {
+                    if (this.isGrounded && Math.abs(ball.x - this.x) < 70 && ball.y < 250 && ball.vy > 0) {
                         this.vy = JUMP_POWER;
                         this.isGrounded = false;
                     }
                 } else {
-                    // 유저 조작
                     if (inputs.left) this.x -= this.speed;
                     if (inputs.right) this.x += this.speed;
                     if (inputs.jump && this.isGrounded) {
@@ -293,7 +330,6 @@
                     }
                 }
 
-                // 점프 중력 가속도
                 if (!this.isGrounded) {
                     this.vy += GRAVITY;
                     this.y += this.vy;
@@ -304,7 +340,6 @@
                     }
                 }
 
-                // 이동 반경 제한
                 if (this.isLeft) {
                     if (this.x < this.radius) this.x = this.radius;
                     if (this.x > NET_X - this.radius - 5) this.x = NET_X - this.radius - 5;
@@ -315,7 +350,7 @@
             }
         }
 
-        // 아케이드 통통 튀는 공 오브젝트
+        // 아케이드 공 모델
         class ArcadeBall {
             constructor() {
                 this.reset(true);
@@ -324,15 +359,14 @@
             reset(toLeft) {
                 this.x = toLeft ? 200 : 600;
                 this.y = 120;
-                this.vx = toLeft ? 4 : -4;
-                this.vy = -3;
+                this.vx = toLeft ? 3.2 : -3.2; // [조정] 기본 수평 발사 속도 하향 다운에 맞춰 감속
+                this.vy = -2;
                 this.radius = 10;
                 this.isSuperStrike = false;
             }
 
             draw() {
                 ctx.save();
-                // 셔틀콕 대신 오락실 느낌의 스피어 이펙트 볼
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.isSuperStrike ? "#fff200" : "#fff";
@@ -345,21 +379,18 @@
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.vy += GRAVITY * 0.7; // 아케이드 정형 낙하속도
+                this.vy += GRAVITY * 0.65; 
 
-                // 천장 튕김 처리
                 if (this.y < this.radius) {
                     this.y = this.radius;
-                    this.vy = -this.vy * 0.9;
+                    this.vy = -this.vy * 0.85;
                 }
 
-                // 네트 충돌 바운스
                 if (this.y > canvas.height - NET_H && Math.abs(this.x - NET_X) < this.radius + 5) {
-                    this.vx = -this.vx * 0.8;
+                    this.vx = -this.vx * 0.75;
                     this.isSuperStrike = false;
                 }
 
-                // 아케이드 바닥 골인 판정 (즉시 스코어)
                 if (this.y >= canvas.height - this.radius) {
                     if (this.x < NET_X) {
                         rightScore++;
@@ -374,30 +405,26 @@
             }
 
             hitCheck(player) {
-                // 단순하고 정확한 충돌 반경 매칭 (아케이드 히트박스)
-                let targetY = player.y - 15; // 라켓 위치 보정
+                let targetY = player.y - 15; 
                 let dx = this.x - player.x;
                 let dy = this.y - targetY;
                 let dist = Math.sqrt(dx*dx + dy*dy);
 
                 if (dist < player.radius + this.radius + 20) {
-                    // 치는 방향 무조건 전방향 아케이드 가속화
-                    this.vx = player.isLeft ? Math.abs(this.vx) + 1.5 : -Math.abs(this.vx) - 1.5;
-                    this.vy = -10; // 안정적인 기본 리바운드 높이
+                    // [조정] 타격 전달 속도 계수 감속 매칭
+                    this.vx = player.isLeft ? Math.abs(this.vx) + 1.1 : -Math.abs(this.vx) - 1.1;
+                    this.vy = -9.2; 
 
-                    // 범위 한계 제어
-                    if (Math.abs(this.vx) > 14) this.vx = player.isLeft ? 14 : -14;
+                    if (Math.abs(this.vx) > 11) this.vx = player.isLeft ? 11 : -14;
 
-                    // [필살기] 점프 도중 강타 시 즉시 스매시 연출 런칭
                     if (!player.isGrounded) {
                         this.isSuperStrike = true;
-                        this.vx *= 1.6;
-                        this.vy = 12; // 수직 스매시 다운 고정벨류
+                        this.vx *= 1.5;
+                        this.vy = 10.5; // [조정] 스매시 꽂히는 속도 안정화
 
-                        // 멋진 필살기 광선 라인 이펙트 추가
                         activeSmashLines.push({
                             sx: this.x, sy: this.y,
-                            ex: this.x + this.vx * 3, ey: canvas.height,
+                            ex: this.x + this.vx * 2.5, ey: canvas.height,
                             alpha: 1.0
                         });
                     } else {
@@ -409,9 +436,15 @@
 
         let player1, player2, arcadeBall;
 
-        // 게임 스타트 스위치
+        // 게임 룸 구동 스위치
         function initArcadeGame(choice) {
             selectedCharacter = choice;
+            leftScore = 0;
+            rightScore = 0;
+            document.getElementById("score-left").innerText = "0";
+            document.getElementById("score-right").innerText = "0";
+            isPaused = false;
+            document.getElementById("btn-pause").innerText = "⏸ PAUSE";
 
             if (choice === 'jiyoon') {
                 player1 = new Character(160, "#ffe4e6", "👩", "지윤(유저)", true, false);
@@ -431,39 +464,60 @@
             document.getElementById("game-screen").style.display = "flex";
 
             setupTouchPads();
-            mainLoop();
         }
 
-        // 터치 제어판 아케이드 바인딩
+        // 터치 조작부 바인딩 이벤트 처리
         function setupTouchPads() {
+            // 중복 리스너 바인딩 차단을 방지하기 위해 단일 매핑 처리 원칙 준수
+            if(window.touchEventsBound) return;
+            window.touchEventsBound = true;
+
             const bind = (id, action) => {
                 const target = document.getElementById(id);
-                target.addEventListener("touchstart", (e) => { e.preventDefault(); inputs[action] = true; });
+                target.addEventListener("touchstart", (e) => { e.preventDefault(); if(!isPaused) inputs[action] = true; });
                 target.addEventListener("touchend", (e) => { e.preventDefault(); inputs[action] = false; });
             };
             bind("pad-l", "left");
             bind("pad-r", "right");
             document.getElementById("pad-j").addEventListener("touchstart", (e) => {
-                e.preventDefault(); inputs.jump = true;
+                e.preventDefault(); if(!isPaused) inputs.jump = true;
             });
         }
 
+        // 메뉴/상단 시스템 버튼 이벤트 바인딩
         document.getElementById("btn-jiyoon").addEventListener("click", () => initArcadeGame('jiyoon'));
         document.getElementById("btn-jihoon").addEventListener("click", () => initArcadeGame('jihoon'));
 
-        // 아케이드 전용 백그라운드 디자인 그리기
+        // [기능 추가] PAUSE 제어 시스템 리스너
+        document.getElementById("btn-pause").addEventListener("click", () => {
+            isPaused = !isPaused;
+            if(isPaused) {
+                document.getElementById("btn-pause").innerText = "▶ PLAY";
+                // 멈췄을 때 키 입력 누락 초기화 조치
+                inputs.left = false;
+                inputs.right = false;
+                inputs.jump = false;
+            } else {
+                document.getElementById("btn-pause").innerText = "⏸ PAUSE";
+            }
+        });
+
+        // [기능 추가] 종료 버튼 - 홈 초기 화면 이동 리스너
+        document.getElementById("btn-exit").addEventListener("click", () => {
+            isPaused = false;
+            document.getElementById("game-screen").style.display = "none";
+            document.getElementById("menu-screen").style.display = "flex";
+        });
+
         function drawArcadeStage() {
-            // 네트 라인 네온 스타일
             ctx.fillStyle = "#fff";
             ctx.fillRect(NET_X - 4, canvas.height - NET_H, 8, NET_H);
             ctx.fillStyle = "#ff007f";
             ctx.fillRect(NET_X - 8, canvas.height - NET_H, 16, 8);
 
-            // 코트 바닥 범퍼선
             ctx.fillStyle = "#fff";
             ctx.fillRect(0, canvas.height - 6, canvas.width, 6);
 
-            // 필살기 스매시 레이저 이펙트 드로잉 루프
             for (let i = activeSmashLines.length - 1; i >= 0; i--) {
                 let line = activeSmashLines[i];
                 ctx.save();
@@ -477,29 +531,48 @@
                 ctx.stroke();
                 ctx.restore();
 
-                line.alpha -= 0.08; // 이펙트 서서히 증발
+                if(!isPaused) line.alpha -= 0.08; 
                 if (line.alpha <= 0) activeSmashLines.splice(i, 1);
+            }
+
+            // 일시정지 상태일 때 캔버스 중앙 안내 텍스트 출력
+            if(isPaused) {
+                ctx.save();
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.font = "bold 40px 'Malgun Gothic'";
+                ctx.fillStyle = "#ffd700";
+                ctx.textAlign = "center";
+                ctx.fillText("일시 정지됨", canvas.width / 2, canvas.height / 2);
+                ctx.restore();
             }
         }
 
-        // 엔진 통합 메인 루프 프레임
+        // 통합 메인 루프 프레임 런쳐
         function mainLoop() {
+            // 일시정지(isPaused)가 아닐 때만 물리적 연산 연동 업데이트 실행
+            if (!isPaused && player1 && player2 && arcadeBall) {
+                player1.update(arcadeBall);
+                player2.update(arcadeBall);
+                arcadeBall.update();
+                arcadeBall.hitCheck(player1);
+                arcadeBall.hitCheck(player2);
+            }
+
+            // 그리기 루프는 멈춘 상태 렌더 유지를 위해 매 틱 실행 필수
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            player1.update(arcadeBall);
-            player2.update(arcadeBall);
-            arcadeBall.update();
-
-            arcadeBall.hitCheck(player1);
-            arcadeBall.hitCheck(player2);
-
-            drawArcStage = drawArcadeStage();
-            player1.draw();
-            player2.draw();
-            arcadeBall.draw();
+            drawArcadeStage();
+            if (player1 && player2 && arcadeBall) {
+                player1.draw();
+                player2.draw();
+                arcadeBall.draw();
+            }
 
             requestAnimationFrame(mainLoop);
         }
+
+        // 글로벌 엔진 루프 스타트
+        mainLoop();
     </script>
 </body>
 </html>
